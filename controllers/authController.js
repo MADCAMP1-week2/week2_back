@@ -10,13 +10,18 @@ exports.login = async (req, res) => {
   const ip = req.ip;
 
   try {
-    const user = await User.findOne({ id }); // 여기 주의: id → 실제 필드명 확인 필요 (ex: username, userId 등)
-    if (!user || !(await user.validatePassword(password))) {
-      return res.status(401).json({ message: "Invalid credentials" });
+    const user = await User.findOne({ id });
+    if (!user || !deviceId || !(await user.validatePassword(password))) {
+      return res.status(401).json({ message: "Invalid credentials or there's no device ID" });
     }
 
-    const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken(user);
+    await RefreshToken.deleteMany({
+      userId: user._id,
+      deviceId: deviceId
+    });
+
+    const accessToken = generateAccessToken(user, deviceId);
+    const refreshToken = generateRefreshToken(user, deviceId);
 
     await RefreshToken.create({
       token: refreshToken,
@@ -56,7 +61,7 @@ exports.checkDuplicate = async (req, res) => {
 
 // 토큰 재발급
 exports.refreshToken = async (req, res) => {
-  const {refreshToken, deviceId} = req.body;
+  const {refreshToken} = req.body;
   const userAgent = req.get("user-agent");
   const ip = req.ip;
 
@@ -68,6 +73,7 @@ exports.refreshToken = async (req, res) => {
   } catch (err) {
     return res.sendStatus(403);
   }
+  const deviceId = payload.deviceId;
 
   try {
     const storedToken = await RefreshToken.findOne({ token: refreshToken });
@@ -78,8 +84,8 @@ exports.refreshToken = async (req, res) => {
     const user = await User.findById(payload.userId);
     if (!user) return res.sendStatus(404);
 
-    const newAccessToken = generateAccessToken(user);
-    const newRefreshToken = generateRefreshToken(user);
+    const newAccessToken = generateAccessToken(user, deviceId);
+    const newRefreshToken = generateRefreshToken(user, deviceId);
 
     await RefreshToken.create({
       token: newRefreshToken,
@@ -104,14 +110,12 @@ exports.refreshToken = async (req, res) => {
 };
 
 exports.logout = async (req, res) => {
-  const refreshToken = req.body.refreshToken;
-  if (!refreshToken) return res.sendStatus(204); // Already logged out
+  const userId = req.user.userId;
+  const deviceId = req.user.deviceId;
 
   try {
-    // 해당 refreshToken 삭제
-    await RefreshToken.findOneAndDelete({ token: refreshToken });
-
-    res.sendStatus(204); // 성공적으로 로그아웃
+    await RefreshToken.deleteOne({ userId, deviceId });
+    res.sendStatus(204);
   } catch (err) {
     console.error(err);
     res.sendStatus(500);
@@ -119,21 +123,11 @@ exports.logout = async (req, res) => {
 };
 
 exports.logoutAllDevices = async (req, res) => {
-  const refreshToken = req.body.refreshToken;
-  if (!refreshToken) return res.sendStatus(401);
-
-  let payload;
-  try {
-    payload = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
-  } catch (err) {
-    return res.sendStatus(403);
-  }
+  const userId = req.user.userId; 
 
   try {
-    // 유저 ID 기준으로 모든 토큰 삭제
-    await RefreshToken.deleteMany({ userId: payload.userId });
-
-    res.sendStatus(204); // 성공적으로 로그아웃됨
+    await RefreshToken.deleteMany({ userId });
+    res.sendStatus(204);
   } catch (err) {
     console.error(err);
     res.sendStatus(500);
@@ -141,23 +135,16 @@ exports.logoutAllDevices = async (req, res) => {
 };
 
 exports.listActiveDevices = async (req, res) => {
-  const refreshToken = req.body.refreshToken;
-  if (!refreshToken) return res.sendStatus(401);
-
-  let payload;
   try {
-    payload = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
-  } catch (err) {
-    return res.sendStatus(403);
-  }
+    const userId = req.user.userId;
 
-  try {
-    const tokens = await RefreshToken.find({ userId: payload.userId })
+    const tokens = await RefreshToken.find({ userId })
       .sort({ createdAt: -1 });
 
     const deviceList = tokens.map(token => ({
       id: token._id,
       ip: token.ip,
+      deviceId: token.deviceId,
       userAgent: token.userAgent,
       createdAt: token.createdAt,
       expiresAt: token.expiresAt,
