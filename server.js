@@ -1,19 +1,16 @@
 const express = require('express');
+const dotenv = require('dotenv');
+const connectDB = require('./db');
+const authRoutes = require('./routes/authRoutes');
+
+dotenv.config();
+connectDB();
+
 const app = express();
-const path = require('path');
-const cors = require('cors');
-require('dotenv').config();
-require('./db');
+app.use(express.json());
 
-app.use(cors());
-app.listen(8080, function(){
-  console.log("listning on 8080");
-});
+app.use('/api/auth', authRoutes);
 
-app.get('/pet', function(req, res){
-  res.send('펫용품 쇼핑할 수 있는 페이지입니다.');
-});
-app.get('/', function(req, res){
-  res.sendFile(path.join(__dirname, 'index.html'));
-  console.log((path.join(__dirname, 'index.html')));
+app.listen(process.env.PORT || 4000, () => {
+  console.log('서버 시작');
 });
