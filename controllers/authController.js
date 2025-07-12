@@ -5,7 +5,7 @@ const { generateAccessToken, generateRefreshToken } = require("../utils/generate
 
 // 로그인
 exports.login = async (req, res) => {
-  const { id, password } = req.body;
+  const { id, password, deviceId } = req.body;
   const userAgent = req.get("user-agent");
   const ip = req.ip;
 
@@ -21,6 +21,7 @@ exports.login = async (req, res) => {
     await RefreshToken.create({
       token: refreshToken,
       userId: user._id,
+      deviceId: deviceId,
       userAgent,
       ip,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
@@ -55,7 +56,7 @@ exports.checkDuplicate = async (req, res) => {
 
 // 토큰 재발급
 exports.refreshToken = async (req, res) => {
-  const refreshToken = req.body.refreshToken;
+  const {refreshToken, deviceId} = req.body;
   const userAgent = req.get("user-agent");
   const ip = req.ip;
 
@@ -83,6 +84,7 @@ exports.refreshToken = async (req, res) => {
     await RefreshToken.create({
       token: newRefreshToken,
       userId: user._id,
+      deviceId: deviceId,
       userAgent,
       ip,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
