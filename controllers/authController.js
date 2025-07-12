@@ -42,9 +42,10 @@ exports.login = async (req, res) => {
 
 // 중복 검사 (username 기준)
 exports.checkDuplicate = async (req, res) => {
-  const { username } = req.query;
+  const { id } = req.query;
+  console.log(id);
   try {
-    const exists = await User.findOne({ username });
+    const exists = await User.findOne({ id });
     res.json({ available: !exists });
   } catch (err) {
     console.error(err);
@@ -70,9 +71,6 @@ exports.refreshToken = async (req, res) => {
   try {
     const storedToken = await RefreshToken.findOne({ token: refreshToken });
     if (!storedToken) return res.sendStatus(403);
-    console.log("DB token:", storedToken.token);
-    console.log("Client token:", refreshToken);
-    console.log("Client token:", refreshToken);
 
     await storedToken.deleteOne();
 
@@ -104,19 +102,12 @@ exports.refreshToken = async (req, res) => {
 };
 
 exports.logout = async (req, res) => {
-  const refreshToken = req.cookies.refreshToken;
+  const refreshToken = req.body.refreshToken;
   if (!refreshToken) return res.sendStatus(204); // Already logged out
 
   try {
     // 해당 refreshToken 삭제
     await RefreshToken.findOneAndDelete({ token: refreshToken });
-
-    // 쿠키 제거
-    res.clearCookie("refreshToken", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "Strict",
-    });
 
     res.sendStatus(204); // 성공적으로 로그아웃
   } catch (err) {
@@ -126,7 +117,7 @@ exports.logout = async (req, res) => {
 };
 
 exports.logoutAllDevices = async (req, res) => {
-  const refreshToken = req.cookies.refreshToken;
+  const refreshToken = req.body.refreshToken;
   if (!refreshToken) return res.sendStatus(401);
 
   let payload;
@@ -140,13 +131,6 @@ exports.logoutAllDevices = async (req, res) => {
     // 유저 ID 기준으로 모든 토큰 삭제
     await RefreshToken.deleteMany({ userId: payload.userId });
 
-    // 쿠키도 삭제
-    res.clearCookie("refreshToken", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "Strict",
-    });
-
     res.sendStatus(204); // 성공적으로 로그아웃됨
   } catch (err) {
     console.error(err);
@@ -155,7 +139,7 @@ exports.logoutAllDevices = async (req, res) => {
 };
 
 exports.listActiveDevices = async (req, res) => {
-  const refreshToken = req.cookies.refreshToken;
+  const refreshToken = req.body.refreshToken;
   if (!refreshToken) return res.sendStatus(401);
 
   let payload;
