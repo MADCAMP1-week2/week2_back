@@ -1,15 +1,11 @@
-const router = require('express').Router();
-const todoCtrl = require('../controllers/todoController');
-const { authenticateAccessToken } = require('../middlewares/authMiddleware');
+const router = require("express").Router();
+const todoCtrl = require("../controllers/todoController");
+const { authenticateAccessToken } = require("../middlewares/authMiddleware");
 
-router
-  .route('/')
-  .get(todoCtrl.getTodos)       // ?start=&end=
-  .post(todoCtrl.createTodo);
+router.get("/", authenticateAccessToken, todoCtrl.getTodos); // ?start=&end=
+router.post("/", authenticateAccessToken, todoCtrl.createTodo);
 
-router
-  .route('/:id')
-  .patch(todoCtrl.updateTodo)
-  .delete(todoCtrl.deleteTodo);
+router.patch("/:id", authenticateAccessToken, todoCtrl.updateTodo);
+router.delete("/:id", authenticateAccessToken, todoCtrl.deleteTodo);
 
 module.exports = router;
