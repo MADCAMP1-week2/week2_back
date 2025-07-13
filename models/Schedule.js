@@ -27,6 +27,11 @@ const repeatSchema = new mongoose.Schema({
       message: "weekDays 값은 0~6 사이의 숫자여야 합니다.",
     },
   },
+  endDate: {
+    // 반복 종료일 (선택)
+    type: Date,
+    default: null,
+  },
 });
 
 const scheduleSchema = new mongoose.Schema(
