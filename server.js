@@ -5,6 +5,8 @@ const authRoutes = require('./routes/authRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const todoRoutes = require('./routes/todoRoutes');
 const scheduleRoutes = require('./routes/scheduleRoutes');
+const projectRoutes = require('./routes/projectRoutes');
+const userRoutes = require('./routes/userRoutes');
 const { authenticateAccessToken } = require("./middlewares/authMiddleware");
 
 dotenv.config();
@@ -17,6 +19,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/todos', authenticateAccessToken, todoRoutes);
 app.use('/api/schedules', authenticateAccessToken, scheduleRoutes);
+app.use('/api/projects', authenticateAccessToken, projectRoutes);
+app.use('/api/users', authenticateAccessToken, userRoutes);
 
 app.listen(process.env.PORT || 4000, () => {
   console.log('서버 시작');
