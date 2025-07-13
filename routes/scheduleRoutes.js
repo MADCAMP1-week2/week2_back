@@ -1,14 +1,11 @@
 const router = require('express').Router();
 const scheduleCtrl = require('../controllers/scheduleController');
+const { authenticateAccessToken } = require("../middlewares/authMiddleware");
 
-router
-  .route('/')
-  .get(scheduleCtrl.getSchedules)   // ?start=&end=
-  .post(scheduleCtrl.createSchedule);
+router.get("/", authenticateAccessToken, scheduleCtrl.getSchedules); // ?start=&end=
+router.post("/", authenticateAccessToken, scheduleCtrl.createSchedule);
 
-router
-  .route('/:id')
-  .patch(scheduleCtrl.updateSchedule)
-  .delete(scheduleCtrl.deleteSchedule);
+router.patch("/:id", authenticateAccessToken, scheduleCtrl.updateSchedule);
+router.delete("/:id", authenticateAccessToken, scheduleCtrl.deleteSchedule);
 
 module.exports = router;
