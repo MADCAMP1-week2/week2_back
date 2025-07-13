@@ -1,12 +1,8 @@
-const express = require("express");
-const router = express.Router();
-const {
-  createCategory,
-  getMyCategories,
-} = require("../controllers/categoryController");
+const router = require("express").Router();
+const categoryCtrl = require("../controllers/categoryController");
 const { authenticateAccessToken } = require("../middlewares/authMiddleware");
 
-router.post("/", authenticateAccessToken, createCategory);
-router.get("/", authenticateAccessToken, getMyCategories);
+router.post("/", authenticateAccessToken, categoryCtrl.createCategory);
+router.get("/", authenticateAccessToken, categoryCtrl.getMyCategories);
 
 module.exports = router;
