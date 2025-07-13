@@ -15,4 +15,9 @@ userSchema.methods.validatePassword = async function (password) {
   return await bcrypt.compare(password, this.passwordHash);
 };
 
+userSchema.methods.toSafeJSON = function () {
+  const { passwordHash, __v, ...safeData } = this.toObject();
+  return safeData;
+};
+
 module.exports = mongoose.model('User', userSchema);
