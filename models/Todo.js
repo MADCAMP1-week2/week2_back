@@ -37,6 +37,7 @@ const repeatSchema = new mongoose.Schema({
 const todoSchema = new mongoose.Schema(
   {
     title: { type: String, required: true, trim: true },
+    date: { type: Date, default: null },
     deadline: { type: Date, default: null },
     completed: { type: Boolean, default: false },
     owner: {
@@ -56,9 +57,25 @@ const todoSchema = new mongoose.Schema(
     },
     difficulty: { type: Number, min: 1, max: 5 }, // 난이도는 1부터 5까지
 
-    repeat: { type: repeatSchema, default: () => ({ type: "none" }) },
+    repeat: {
+      type: repeatSchema,
+      default: () => ({ type: "none" }),
+      validate: [
+        {
+          validator: function (val) {
+            // repeat이 설정되었으면 date도 필수
+            if (val.type !== "none" && !this.date) {
+              return false;
+            }
+            return true;
+          },
+          message: "반복 설정은 date가 있는 경우에만 가능합니다.",
+        },
+      ],
+    },
     collaborators: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   },
+
   { timestamps: true }
 );
 
