@@ -73,7 +73,6 @@ const todoSchema = new mongoose.Schema(
         },
       ],
     },
-    collaborators: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   },
 
   { timestamps: true }

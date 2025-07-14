@@ -49,7 +49,7 @@ const scheduleSchema = new mongoose.Schema(
     project: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Project",
-      default: null, // null 일 경우 개인 TODO
+      default: null, // null 일 경우 개인 일정
     },
     category: {
       type: mongoose.Schema.Types.ObjectId,
@@ -57,7 +57,6 @@ const scheduleSchema = new mongoose.Schema(
       required: true,
     },
     repeat: { type: repeatSchema, default: () => ({ type: "none" }) },
-    collaborators: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   },
   { timestamps: true }
 );
