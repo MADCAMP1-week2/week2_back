@@ -1,38 +1,35 @@
 const Category = require("../models/Category");
+const asyncHandler = require("../middlewares/asyncHandler");
 
-// 개인 카테고리 생성 (TODO에만 쓸지 일정이랑 같이 쓸지는 모름)
-exports.createCategory = async (req, res) => {
-  try {
-    const { name, color, isPublic } = req.body;
-    const userId = req.user.userId;
+// 카테고리 생성
+exports.createCategory = asyncHandler(async (req, res) => {
+  const owner = req.user.userId;
+  const newCategory = await Category.create({ ...req.body, owner });
+  res.status(201).json(newCategory);
+});
 
-    const newCategory = new Category({
-      userId,
-      name,
-      color,
-      isPublic,
-    });
+// 카테고리 목록 조회
+exports.getMyCategories = asyncHandler(async (req, res) => {
+  const owner = req.user.userId;
+  const categories = await Category.find({ owner }); // 본인 것만 조회
+  res.status(200).json(categories);
+});
 
-    await newCategory.save();
-    res.status(201).json(newCategory);
-  } catch (err) {
-    console.error("카테고리 생성 오류:", err);
-    res.status(500).json({ message: "카테고리 생성에 실패했습니다." });
-  }
-};
+// 카테고리 수정
+exports.updateCategory = asyncHandler(async (req, res) => {
+  const owner = req.user.userId;
+  const { id } = req.params;
+  const cat = await Category.findOneAndUpdate({ _id: id, owner }, req.body, {
+    new: true,
+    runValidators: true,
+  });
+  if (!cat) return res.status(404).json({ message: "Category not found" });
+  res.json(cat);
+});
 
-// 개인 카테고리 목록 조회
-exports.getMyCategories = async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const categories = await Category.find({ userId }); // 본인 것만 조회
-    res.status(200).json(categories);
-  } catch (err) {
-    console.error("카테고리 목록 조회 오류:", err);
-    res.status(500).json({ message: "카테고리 목록을 불러오지 못했습니다." });
-  }
-};
-
-// 개인 카테고리 수정
-
-// 개인 카테고리 삭제
+// 카테고리 삭제
+exports.deleteCategory = asyncHandler(async (req, res) => {
+  const owner = req.user.userId;
+  await Category.findOneAndDelete({ _id: req.params.id, owner });
+  res.status(204).end();
+});
