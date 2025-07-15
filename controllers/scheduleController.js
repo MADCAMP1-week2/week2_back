@@ -32,7 +32,7 @@ exports.getSchedules = asyncHandler(async (req, res) => {
     "repeat.type": { $ne: "none" },
     startDateTime: { $lte: endDate.toDate() }, // 반복 시작은 endDate 이전
     $or: [
-      { "repeat.endDate": { $exists: false } }, // 반복 종료 없거나
+      { "repeat.endDate": null }, // 반복 종료 없거나
       { "repeat.endDate": { $gte: startDate.toDate() } }, // 반복 종료가 startDate 이후
     ],
   })
