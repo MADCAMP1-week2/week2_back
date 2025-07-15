@@ -1,8 +1,6 @@
 const Todo = require("../models/Todo");
 const asyncHandler = require("../middlewares/asyncHandler");
-const dayjs = require("dayjs");
-const utc = require("dayjs/plugin/utc");
-dayjs.extend(utc);
+const dayjs = require("../utils/dayjs"); // 커스텀 dayjs
 
 // GET /api/todos?today=YYYY-MM-DD
 exports.getTodos = asyncHandler(async (req, res) => {
