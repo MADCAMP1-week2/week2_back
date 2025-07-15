@@ -3,15 +3,29 @@ const CompletedRepeatTodo = require("../models/CompletedRepeatTodo");
 const asyncHandler = require("../middlewares/asyncHandler");
 const dayjs = require("../utils/dayjs"); // 커스텀 dayjs
 const calculateAndSaveBusynessScore = require("../utils/calculateBusynessScore");
+const calculateAndSaveBonusScore = require("../utils/calculateBonusScore");
 
 // 바쁨 지수 계산 트리거 (비동기 처리)
 const triggerBusynessRecalculation = (owner, context = "작업 후") => {
-  calculateAndSaveBusynessScore(owner)
+  const today = dayjs().startOf("day");
+  calculateAndSaveBusynessScore(owner, today)
     .then(() => {
       console.log(`✅ ${context} 바쁨지수 재계산 완료`);
     })
     .catch((err) => {
       console.log(`❌ ${context} 바쁨지수 재계산 실패:`, err);
+    });
+};
+
+// 보너스 점수 계산 트리거 (비동기 처리)
+const triggerBonusRecalculation = (owner) => {
+  const today = dayjs().startOf("day");
+  calculateAndSaveBonusScore(owner, today)
+    .then(() => {
+      console.log(`✅ 보너스 점수 재계산 완료`);
+    })
+    .catch((err) => {
+      console.log("❌ 보너스 점수 재계산 실패:", err);
     });
 };
 
@@ -307,8 +321,7 @@ exports.updateTodoCompletedStatus = asyncHandler(async (req, res) => {
     await Todo.updateOne({ _id: id }, { $set: { completed } });
   }
 
-  // 바쁨 지수 다시 계산
-
+  triggerBonusRecalculation(owner);
   res.json({ message: "완료 상태가 업데이트되었습니다." });
 });
 
