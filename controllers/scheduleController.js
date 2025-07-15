@@ -1,6 +1,30 @@
-const Schedule = require('../models/Schedule');
-const asyncHandler = require('../middlewares/asyncHandler');
-const dayjs = require('dayjs');
+const Schedule = require("../models/Schedule");
+const asyncHandler = require("../middlewares/asyncHandler");
+const dayjs = require("dayjs");
+
+// 다음 주차 계산하는 함수
+const getNextRepeatDate = (baseDate, repeat) => {
+  const base = dayjs(baseDate);
+
+  if (repeat.type === "daily") {
+    return base.add(repeat.interval, "day");
+  }
+
+  if (repeat.type === "weekly") {
+    const nextDayIndex = repeat.weekDays
+      .map((d) => (d + 7 - base.day()) % 7)
+      .filter((diff) => diff > 0)
+      .sort((a, b) => a - b)[0];
+
+    return base.add(nextDayIndex || 7, "day");
+  }
+
+  if (repeat.type === "monthly") {
+    return base.add(1, "month");
+  }
+
+  return base;
+};
 
 // GET /api/schedules?start=YYYY-MM-DD&end=YYYY-MM-DD
 exports.getSchedules = asyncHandler(async (req, res) => {
@@ -70,7 +94,9 @@ exports.getSchedules = asyncHandler(async (req, res) => {
         }
 
         if (repeat.type === "monthly") {
-          return cursor.date() === dayjs(startDateTime).date();
+          return (
+            cursor.startDateTime() === dayjs(startDateTime).startDateTime()
+          );
         }
 
         return false;
@@ -114,16 +140,172 @@ exports.createSchedule = asyncHandler(async (req, res) => {
 exports.updateSchedule = asyncHandler(async (req, res) => {
   const owner = req.user.userId;
   const { id } = req.params;
-  const sched = await Schedule.findOneAndUpdate({ _id: id, owner }, req.body, {
-    new: true,
-    runValidators: true,
-  });
-  if (!sched) return res.status(404).json({ message: 'Schedule not found' });
-  res.json(sched);
+  const { action, updateData } = req.body; // action 항목 추가: "only_this_date" | "from_this_date" | "all"
+
+  if (!id || !updateData.startDateTime || !updateData.endDateTime || !action) {
+    return res.status(400).json({ message: "필수 파라미터가 없습니다." });
+  }
+
+  const targetStartDate = dayjs(updateData.startDateTime);
+  const targetEndDate = dayjs(updateData.endDateTime);
+
+  const sched = await Schedule.findOne({ _id: id, owner: owner });
+  if (!sched)
+    return res
+      .status(404)
+      .json({ message: "요청하신 일정을 찾을 수 없습니다." });
+
+  if (sched.repeat.type === "none") {
+    const { _id, ...restUpdateData } = updateData;
+    Object.assign(sched, restUpdateData);
+    await sched.save();
+    return res.json(sched);
+  }
+
+  const newRepeatEnd = targetStartDate.subtract(1, "day").toDate();
+  const originalRepeatEnd = sched.repeat.endDate;
+
+  switch (action) {
+    case "only_this_date": {
+      if (
+        originalRepeatEnd === null ||
+        dayjs(originalRepeatEnd).isAfter(targetEndDate)
+      ) {
+        // 기존 일정 종료일 변경
+        sched.repeat.endDate = newRepeatEnd;
+        await sched.save();
+      }
+
+      // 새로운 미반복 일정 (이 날짜에 수정 내용 반영)
+      const editedOneTimeSched = {
+        ...updateData,
+        owner,
+        _id: undefined,
+        repeat: { type: "none" },
+      };
+      const savedEditedSched = await Schedule.create(editedOneTimeSched);
+
+      // 새로운 반복 일정 (date를 다음 반복 날짜로 설정)
+      const nextStartDate = getNextRepeatDate(targetStartDate, sched.repeat);
+      const nextEndDate = nextStartDate.add(
+        dayjs(sched.endDateTime).diff(sched.startDateTime, "minute"),
+        "minute"
+      );
+
+      const newRepeatSched = {
+        ...sched.toObject(),
+        _id: undefined,
+        startDateTime: nextStartDate.toDate(),
+        endDateTime: nextEndDate.toDate(),
+        repeat: { ...sched.repeat.toObject(), endDate: originalRepeatEnd },
+      };
+
+      const savedRepeatSched = await Schedule.create(newRepeatSched);
+
+      return res.status(200).json({
+        editedSched: savedEditedSched,
+        nextRepeatSched: savedRepeatSched,
+      });
+    }
+    case "from_this_date": {
+      if (
+        originalRepeatEnd === null ||
+        dayjs(originalRepeatEnd).isAfter(targetEndDate)
+      ) {
+        // 기존 반복 일정 종료
+        sched.repeat.endDate = newRepeatEnd;
+        await sched.save();
+      }
+
+      // 새로운 반복 일정 생성 (수정 내용 반영, startDateTime, endDateTime은 새로 설정됨)
+      const newRepeatSched = {
+        ...updateData,
+        owner,
+        _id: undefined,
+      };
+      const savedNewRepeatSched = await Schedule.create(newRepeatSched);
+
+      return res.status(200).json(savedNewRepeatSched);
+    }
+    case "all": {
+      // 그냥 다 수정
+      const { _id, ...restUpdateData } = updateData;
+      Object.assign(sched, restUpdateData);
+      await sched.save();
+      return res.json(sched);
+    }
+
+    default:
+      return res.status(400).json({ message: "알 수 없는 action 타입입니다." });
+  }
 });
 
 exports.deleteSchedule = asyncHandler(async (req, res) => {
   const owner = req.user.userId;
-  await Schedule.findOneAndDelete({ _id: req.params.id, owner });
-  res.status(204).end();
+  const { id } = req.params; // schedule ID
+  const { action, startDateTime } = req.body; // action 항목 추가: "only_this_date" | "from_this_date" | "all"
+
+  if (!id || !startDateTime || !action) {
+    return res.status(400).json({ message: "필수 파라미터가 없습니다." });
+  }
+  const targetDate = dayjs(startDateTime).startOf("day");
+  const sched = await Schedule.findOne({ _id: id, owner: owner });
+
+  if (!sched) {
+    return res
+      .status(404)
+      .json({ message: "요청하신 일정을 찾을 수 없습니다." });
+  }
+
+  // 반복 없는 일정은 그냥 삭제
+  if (sched.repeat.type === "none") {
+    await sched.deleteOne();
+    return res.status(200).json({ message: "삭제 완료 (반복 없음)" });
+  }
+
+  const originalRepeatEnd = sched.repeat.endDate;
+  const newRepeatEnd = targetDate.subtract(1, "day").toDate();
+
+  switch (action) {
+    case "only_this_date": {
+      // 기존 반복 일정 종료
+      if (!originalRepeatEnd || dayjs(originalRepeatEnd).isAfter(targetDate)) {
+        sched.repeat.endDate = newRepeatEnd;
+        await sched.save();
+      }
+      // 새로운 반복 일정 (date를 다음 반복 날짜로 설정)
+      const nextStartDate = getNextRepeatDate(targetDate, sched.repeat);
+      const nextEndDate = nextStartDate.add(
+        dayjs(sched.endDateTime).diff(sched.startDateTime, "minute"),
+        "minute"
+      );
+      const newRepeatSched = {
+        ...sched.toObject(),
+        _id: undefined,
+        startDateTime: nextStartDate.toDate(),
+        endDateTime: nextEndDate.toDate(),
+        repeat: { ...sched.repeat.toObject(), endDate: originalRepeatEnd },
+      };
+      const savedRepeatSched = await Schedule.create(newRepeatSched);
+
+      return res.status(200).json({
+        message: "해당 날짜 인스턴스만 삭제 완료",
+        nextRepeatSched: savedRepeatSched,
+      });
+    }
+    case "from_this_date": {
+      // 기존 반복 종료일 변경
+      if (!originalRepeatEnd || dayjs(originalRepeatEnd).isAfter(targetDate)) {
+        sched.repeat.endDate = newRepeatEnd;
+        await sched.save();
+      }
+      return res.status(200).json({ message: "이 날짜 이후 반복 삭제 완료" });
+    }
+    case "all": {
+      await sched.deleteOne();
+      return res.status(200).json({ message: "전체 반복 삭제 완료" });
+    }
+    default:
+      return res.status(400).json({ message: "알 수 없는 action 타입입니다." });
+  }
 });
