@@ -3,8 +3,12 @@ const bcrypt = require('bcrypt');
 
 const userSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true },
-  nickname: { type: String, required: true},
+  nickname: { type: String, required: true },
   passwordHash: { type: String, required: true },
+  fcmToken: {
+    type: String,
+    default: null,
+  },
 });
 
 userSchema.methods.setPassword = async function (password) {

@@ -7,7 +7,7 @@ const todoRoutes = require('./routes/todoRoutes');
 const scheduleRoutes = require('./routes/scheduleRoutes');
 const projectRoutes = require('./routes/projectRoutes');
 const userRoutes = require('./routes/userRoutes');
-const { authenticateAccessToken } = require("./middlewares/authMiddleware");
+const { authenticateAccessToken } = require('./middlewares/authMiddleware');
 
 dotenv.config();
 connectDB();
@@ -25,3 +25,5 @@ app.use('/api/users', authenticateAccessToken, userRoutes);
 app.listen(process.env.PORT || 4000, () => {
   console.log('서버 시작');
 });
+
+require('./scheduler/sendTodoReminders');

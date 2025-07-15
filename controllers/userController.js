@@ -1,4 +1,5 @@
 const User = require("../models/User");
+const asyncHandler = require("../middlewares/asyncHandler");
 
 // id로 user 검색
 // GET /api/users/search?id=...
@@ -19,3 +20,12 @@ exports.searchUsers = async (req, res) => {
     res.sendStatus(500);
   }
 };
+
+// 클라이언트에서 FCM 토큰을 받아 저장
+exports.updateFcmToken = asyncHandler(async (req, res) => {
+  const { fcmToken } = req.body;
+  req.user.fcmToken = fcmToken;
+  await req.user.save();
+  res.status(200).json({ message: "FCM 토큰 저장 완료" });
+});
+
