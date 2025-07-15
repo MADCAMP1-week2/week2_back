@@ -90,6 +90,55 @@ exports.updateProjectMembers = asyncHandler(async (req, res) => {
   res.status(200).json(updatedProject);
 });
 
+// 프로젝트 오너 수정 (해당 프로젝트의 오너만 변경 가능)
+// { "newOwnerId":"어쩌구" }
+exports.updateProjectOwner = asyncHandler(async (req, res) => {
+  const projectId = req.params.id;
+  const { newOwnerId } = req.body;
+  const userId = req.user.userId; // 현재 사용자
+
+  // 유효성 검사
+  if (!newOwnerId) {
+    return res.status(400).json({ message: "newOwnerId가 필요합니다." });
+  }
+
+  const project = await Project.findById(projectId);
+  if (!project) {
+    return res.status(404).json({ message: "프로젝트를 찾을 수 없습니다." });
+  }
+
+  // 요청자가 오너인지 확인
+  if (project.owner.toString() !== userId) {
+    return res
+      .status(403)
+      .json({ message: "오너만 프로젝트 오너를 변경할 수 있습니다." });
+  }
+
+  // 새로운 오너가 멤버인지 확인
+  const isMember = project.members
+    .map((id) => id.toString())
+    .includes(newOwnerId);
+  if (!isMember) {
+    return res.status(400).json({
+      message: "새로운 오너는 프로젝트 멤버 중에 존재해야 합니다.",
+    });
+  }
+
+  // 오너 변경
+  project.owner = newOwnerId;
+  await project.save();
+
+  res.status(200).json({
+    message: "프로젝트 오너가 변경되었습니다.",
+    project: {
+      id: project._id,
+      name: project.name,
+      owner: project.owner,
+      members: project.members,
+    },
+  });
+});
+
 // 프로젝트 삭제 (해당 프로젝트의 오너만 삭제 가능)
 exports.deleteProject = asyncHandler(async (req, res) => {
   const projectId = req.params.id;
