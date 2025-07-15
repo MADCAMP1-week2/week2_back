@@ -3,8 +3,8 @@ const Todo = require("../models/Todo");
 const BusynessScore = require("../models/BusynessScore");
 const generateBreakdownFromTodos = require("./generateBreakdownFromTodos");
 
-const calculateAndSaveBusynessScore = async (userId) => {
-  const today = dayjs().startOf("day");
+const calculateAndSaveBusynessScore = async (userId, today) => {
+  //const today = dayjs().startOf("day");
   const endDate = today.add(20, "day"); // 3주
 
   // 1. 해당 유저의 향후 3주간 할 일 가져오기 (반복 X)
