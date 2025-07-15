@@ -6,6 +6,11 @@ router.get("/", authenticateAccessToken, todoCtrl.getTodos); // ?start=&end=
 router.post("/", authenticateAccessToken, todoCtrl.createTodo);
 
 router.patch("/:id", authenticateAccessToken, todoCtrl.updateTodo);
+router.patch(
+  "/:id/completed",
+  authenticateAccessToken,
+  todoCtrl.updateTodoCompletedStatus
+);
 router.delete("/:id", authenticateAccessToken, todoCtrl.deleteTodo);
 
 module.exports = router;
