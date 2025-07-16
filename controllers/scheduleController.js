@@ -117,7 +117,7 @@ exports.getSchedules = asyncHandler(async (req, res) => {
 
         if (repeat.type === "monthly") {
           return (
-            cursor.startDateTime() === dayjs(startDateTime).startDateTime()
+            cursor.date() === dayjs(startDateTime).date()
           );
         }
 
@@ -150,9 +150,6 @@ exports.getSchedules = asyncHandler(async (req, res) => {
   }
 
   const allSchedules = [...normalSchedules, ...expandedRepeats];
-  console.log("normalSchedules:", normalSchedules);
-  console.log("expandedRepeats:", expandedRepeats);
-  console.log("allSchedules:", allSchedules);
   res.json(allSchedules);
 });
 
