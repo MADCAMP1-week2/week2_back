@@ -27,9 +27,9 @@ const getNextRepeatDate = (baseDate, repeat) => {
   return base;
 };
 
-// GET /api/schedules?start=YYYY-MM-DD&end=YYYY-MM-DD
+// GET /api/schedules?start=YYYY-MM-DD&end=YYYY-MM-DD&projectId=12345678
 exports.getSchedules = asyncHandler(async (req, res) => {
-  const { start, end } = req.query;
+  const { start, end, projectId } = req.query;
   const owner = req.user.userId;
 
   if (!(start && end)) {
@@ -39,17 +39,26 @@ exports.getSchedules = asyncHandler(async (req, res) => {
   const startDate = dayjs(start).startOf("day");
   const endDate = dayjs(end).endOf("day");
 
-  // 로그인한 사용자가 속한 프로젝트 목록 가져오기
-  const userProjects = await Project.find({ members: owner })
-    .select("_id")
-    .lean();
-  const userProjectIds = userProjects.map((p) => p._id);
+  let projectFilter = [];
+
+  if (projectId) {
+    // 쿼리로 받은 특정 프로젝트 일정만
+    projectFilter = [{ project: projectId }];
+  } else {
+    // 로그인한 사용자가 속한 프로젝트 목록 가져오기
+    const userProjects = await Project.find({ members: owner })
+      .select("_id")
+      .lean();
+    const userProjectIds = userProjects.map((p) => p._id);
+
+    projectFilter = [{ project: { $in: userProjectIds } }];
+  }
 
   // 1. 반복 없는 일정
   const normalSchedules = await Schedule.find({
     $or: [
       { owner }, // 본인 일정
-      { project: { $in: userProjectIds } }, // 본인이 속한 프로젝트의 일정
+      ...projectFilter, // 본인이 속한 프로젝트의 일정
     ],
     "repeat.type": "none",
     startDateTime: { $lte: endDate.toDate() }, // 종료 이전에 시작한 일정
@@ -64,7 +73,7 @@ exports.getSchedules = asyncHandler(async (req, res) => {
   const repeatSchedules = await Schedule.find({
     $or: [
       { owner }, // 본인 일정
-      { project: { $in: userProjectIds } }, // 본인이 속한 프로젝트의 일정
+      ...projectFilter, // 본인이 속한 프로젝트의 일정
     ],
     "repeat.type": { $ne: "none" },
     startDateTime: { $lte: endDate.toDate() }, // 반복 시작은 endDate 이전
