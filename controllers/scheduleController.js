@@ -150,6 +150,9 @@ exports.getSchedules = asyncHandler(async (req, res) => {
   }
 
   const allSchedules = [...normalSchedules, ...expandedRepeats];
+  console.log("normalSchedules:", normalSchedules);
+  console.log("expandedRepeats:", expandedRepeats);
+  console.log("allSchedules:", allSchedules);
   res.json(allSchedules);
 });
 
