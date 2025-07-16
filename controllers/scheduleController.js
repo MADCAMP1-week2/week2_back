@@ -1,4 +1,5 @@
 const Schedule = require("../models/Schedule");
+const Project = require("../models/Project");
 const asyncHandler = require("../middlewares/asyncHandler");
 const dayjs = require("dayjs");
 
@@ -38,9 +39,18 @@ exports.getSchedules = asyncHandler(async (req, res) => {
   const startDate = dayjs(start).startOf("day");
   const endDate = dayjs(end).endOf("day");
 
+  // 로그인한 사용자가 속한 프로젝트 목록 가져오기
+  const userProjects = await Project.find({ members: owner })
+    .select("_id")
+    .lean();
+  const userProjectIds = userProjects.map((p) => p._id);
+
   // 1. 반복 없는 일정
   const normalSchedules = await Schedule.find({
-    owner,
+    $or: [
+      { owner }, // 본인 일정
+      { project: { $in: userProjectIds } }, // 본인이 속한 프로젝트의 일정
+    ],
     "repeat.type": "none",
     startDateTime: { $lte: endDate.toDate() }, // 종료 이전에 시작한 일정
     endDateTime: { $gte: startDate.toDate() }, // 시작 이후에 끝나는 일정
@@ -52,7 +62,10 @@ exports.getSchedules = asyncHandler(async (req, res) => {
 
   // 2. 반복 일정 가져오기
   const repeatSchedules = await Schedule.find({
-    owner,
+    $or: [
+      { owner }, // 본인 일정
+      { project: { $in: userProjectIds } }, // 본인이 속한 프로젝트의 일정
+    ],
     "repeat.type": { $ne: "none" },
     startDateTime: { $lte: endDate.toDate() }, // 반복 시작은 endDate 이전
     $or: [
