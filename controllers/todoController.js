@@ -1,4 +1,5 @@
 const Todo = require("../models/Todo");
+const Project = require("../models/Project");
 const CompletedRepeatTodo = require("../models/CompletedRepeatTodo");
 const asyncHandler = require("../middlewares/asyncHandler");
 const dayjs = require("../utils/dayjs"); // 커스텀 dayjs
@@ -53,9 +54,9 @@ const getNextRepeatDate = (baseDate, repeat) => {
   return base;
 };
 
-// GET /api/todos?today=YYYY-MM-DD
+// GET /api/todos?today=YYYY-MM-DD&projectId=12345678
 exports.getTodos = asyncHandler(async (req, res) => {
-  const { today } = req.query;
+  const { today, projectId } = req.query;
   const owner = req.user.userId; // JWT 미들웨어가 넣어둠
 
   if (!today) {
@@ -64,9 +65,20 @@ exports.getTodos = asyncHandler(async (req, res) => {
 
   const chosenDate = dayjs(today).startOf("day");
 
+  // 필터 조건 구성
+  let ownerProjectFilter = {};
+
+  if (projectId) {
+    // 특정 프로젝트의 내 투두만 가져옴
+    ownerProjectFilter = { owner, project: projectId };
+  } else {
+    // 개인 프로젝트(null) 중 내 투두만 가져옴
+    ownerProjectFilter = { owner };
+  }
+
   // 1. 반복 없는 투두 (date, deadline)
   const normalTodos = await Todo.find({
-    owner,
+    ...ownerProjectFilter,
     "repeat.type": "none",
     $or: [
       {
@@ -99,7 +111,7 @@ exports.getTodos = asyncHandler(async (req, res) => {
 
   // 2. 반복 투두 (date)
   const repeatTodos = await Todo.find({
-    owner,
+    ...ownerProjectFilter,
     "repeat.type": { $ne: "none" },
     date: { $lte: chosenDate.endOf("day").toDate() },
     $or: [
@@ -166,10 +178,36 @@ exports.getTodos = asyncHandler(async (req, res) => {
 
 exports.createTodo = asyncHandler(async (req, res) => {
   const owner = req.user.userId;
-  const newTodo = await Todo.create({ ...req.body, owner });
+  const { project } = req.body;
 
+  // 본인 todo 먼저 생성
+  const newTodo = await Todo.create({ ...req.body, owner });
   // 바쁨 지수 재계산
   triggerBusynessRecalculation(owner, "Todo 등록");
+
+  // project todo인 경우, 멤버에게도 동일한 todo 생성
+  if (project) {
+    const targetProject = await Project.findById(project).lean();
+
+    if (targetProject && targetProject.members?.length > 0) {
+      // 본인을 제외한 멤버만 필터링
+      const otherMembers = targetProject.members.filter(
+        (memberId) => memberId.toString() !== owner
+      );
+
+      const sharedTodos = otherMembers.map((memberId) => ({
+        ...req.body,
+        owner: memberId,
+      }));
+
+      await Todo.insertMany(sharedTodos);
+
+      // 각 멤버에 대해서도 바쁨 지수 재계산
+      otherMembers.forEach((memberId) => {
+        triggerBusynessRecalculation(memberId, "공유된 Todo 생성");
+      });
+    }
+  }
   res.status(201).json(newTodo);
 });
 
